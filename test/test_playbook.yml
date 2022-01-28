@@ -1,0 +1,29 @@
+---
+- name: Test playbook
+  hosts: test
+  gather_facts: false
+  become: true
+  become_method: sudo
+  vars_files:
+    - group_vars/vault_vars.yml
+  vars:
+    ansible_become_pass: "{{ root_pass }}"
+    ansible_port: 2517
+
+  tasks:
+    - name: ping
+      ping: ~
+
+    # - name: Echo
+    #   shell: echo {{user}} {{group}}
+
+    # - name: Update and upgrade apt packages
+    #   apt:
+    #     upgrade: yes
+    #     update_cache: yes
+
+    - name: Reboot to apply changes
+      command: reboot
+      async: 1
+      poll: 0
+      ignore_errors: yes
