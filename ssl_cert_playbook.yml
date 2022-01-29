@@ -1,0 +1,71 @@
+---
+- name: Create SSL certificate
+  hosts: test
+  gather_facts: false
+  become: true
+  become_method: sudo
+  vars_files:
+    - group_vars/vault_vars.yml
+  vars:
+    ansible_become_pass: "{{ root_pass }}"
+    ansible_port: 2517
+    domain: sonar.zhu4.net
+    email: zhu4.ivan@pm.me
+  tasks:
+    - name: ping
+      ping: ~
+
+### Create SSL certificate
+    - name: Install Certbot
+      apt: 
+        pkg: "{{ item }}"
+        state: latest
+        update_cache: yes
+      with_items:
+        - certbot
+        - python3-certbot-nginx
+
+    - name: Create /var/www/{{ domain }}/html folder, set chown USER:USER
+      file: 
+        state: directory
+        path: /var/www/{{ domain }}/html
+        owner: "{{ user }}"
+        group: "{{ group }}"
+        mode: 0700
+
+    - name: Add HTTP version of {{ domain }}.conf to /etc/nginx/sites-available
+      template:
+        src: ./files/http-domain.j2
+        dest: /etc/nginx/sites-available/{{ domain }}.conf
+
+    - name: Create symbolic link for HTTP version of {{ domain }}.conf to /etc/nginx/sites-enabled
+      file:
+        state: link
+        src: /etc/nginx/sites-available/{{ domain }}.conf
+        dest: /etc/nginx/sites-enabled/{{ domain }}.conf
+        owner: "{{ user }}"
+        group: "{{ group }}"
+        mode: 0700
+      notify:
+        - reload_nginx
+
+    - name: Dry run before create SSL certificate for {{ domain }}
+      command: 
+        cmd: certbot --nginx certonly --agree-tos -m {{ email }} -d {{ domain }} --dry-run # -d www.{{ domain }}
+
+    - name: Create SSL certificate for {{ domain }}
+      command: 
+        cmd: certbot --nginx certonly --agree-tos -m {{ email }} -d {{ domain }} # -d www.{{ domain }}
+
+    - name: Add HTTPS version of {{ domain }}.conf to /etc/nginx/sites-available
+      template:
+        src: ./files/https-domain.j2
+        dest: /etc/nginx/sites-available/{{ domain }}.conf
+      notify:
+        - reload_nginx
+
+  handlers:
+    - name: reload_nginx
+      service:
+        name: nginx
+        state: reloaded

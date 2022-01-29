@@ -1,0 +1,104 @@
+---
+- name: Initial configuration of server
+  hosts: test
+  gather_facts: false
+  vars_files:
+    - group_vars/vault_vars.yml
+
+  tasks:
+### Update server & install required packages
+    - name: ping
+      ping: ~
+
+    - name: Install aptitude using apt
+      apt: name=aptitude state=latest update_cache=yes force_apt_get=yes
+
+    - name: Update and upgrade apt packages
+      apt:
+        upgrade: yes
+        update_cache: yes
+
+    - name: Install required system packages
+      apt: name={{ item }} state=latest update_cache=yes
+      loop: [ 'apt-transport-https', 'ca-certificates', 'curl', 'software-properties-common', 
+          'python3-pip', 'virtualenv', 'python3-setuptools','dpkg-dev', 'build-essential',
+          'gnupg2', 'git', 'gcc', 'cmake', 'libpcre3', 'libpcre3-dev', 'zlib1g', 'zlib1g-dev',
+          'unzip' ]
+
+### Install docker
+    - name: Add Docker GPG apt Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker Repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu bionic stable
+        state: present
+
+    - name: Update apt and install docker-ce
+      apt: update_cache=yes name=docker-ce state=latest
+
+    - name: Install Docker Module for Python
+      pip:
+        name: docker
+
+### Configurate ufw
+    - name: Install ufw
+      apt:
+        name: ufw
+        update_cache: yes
+
+    - name: Copying ufw config
+      copy: 
+        src: files/ufw
+        dest: /etc/ufw/applications.d/apps
+    
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+
+    - name: Allow SSH
+      community.general.ufw:
+        rule: allow
+        name: SSH
+
+### Change user
+    - name: Update Root user's Password
+      user: 
+        name: root
+        update_password: always 
+        password: "{{ root_pass_hash }}"
+
+    - name: Create a login user
+      user:
+        name: "{{ user }}"
+        password: "{{ root_pass_hash }}"
+        groups: sudo, docker    # Empty by default. docker, sudo 
+        state: present
+        shell: /bin/bash        # Defaults to /bin/bash
+        system: no              # Defaults to no
+        createhome: yes         # Defaults to yes
+        home: /home/{{ user }}  # Defaults to /home/<username>
+
+    - name: Authorize key
+      authorized_key:
+        user: "{{ user }}"
+        key: "{{ lookup('file', '/home/' + lookup('env', 'USER') + '/.ssh/id_ed25519.pub') }}"
+
+    - name: Configure sshd
+      lineinfile:
+        path: "/etc/ssh/sshd_config"
+        regex: "^(#)?{{item.key}}"
+        line: "{{item.key}} {{item.value}}"
+        state: present
+      loop:
+        - { key: "PermitRootLogin", value: "no" }
+        - { key: "PasswordAuthentication", value: "no" } 
+        - { key: "Port", value: "2517" }
+
+    - name: Reboot to apply changes
+      command: reboot
+      async: 1
+      poll: 0
+      ignore_errors: yes
