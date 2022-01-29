@@ -51,7 +51,7 @@
 
     - name: Copying ufw config
       copy: 
-        src: templates/apps
+        src: files/ufw
         dest: /etc/ufw/applications.d/apps
     
     - name: Enable UFW

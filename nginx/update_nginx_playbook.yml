@@ -1,0 +1,150 @@
+---
+- name: Test playbook
+  hosts: test
+  gather_facts: false
+  become: true
+  become_method: sudo
+  vars_files:
+    - group_vars/vault_vars.yml
+  vars:
+    ansible_become_pass: "{{ root_pass }}"
+    ansible_port: 2517
+    domain: sonar.zhu4.net
+  tasks:
+    - name: ping
+      ping: ~
+
+### Update Nginx Broti
+    - name: Update and upgrade apt packages
+      apt:
+        upgrade: yes
+        update_cache: yes
+
+    - name: Update apt cache and install Nginx
+      apt:
+        name: nginx
+        state: latest
+        update_cache: yes
+
+    - name: Create /etc/nginx/conf.d folder, set chown USER:USER
+      file:
+        state: directory
+        path: "{{ item.path }}"
+        owner: "{{ user }}"
+        group: "{{ group }}"
+        mode: 0644
+      with_items:
+        - { path: "/etc/nginx/conf.d" }
+
+    - name: Copy configs Nginx
+      copy:
+        src: files/nginx.conf
+        dest: /etc/nginx/nginx.conf
+        owner: "{{ user }}"
+        group: "{{ group }}"
+        mode: 0644
+
+    - name: Create folders
+      file: 
+        state: directory
+        path: "{{ item }}"
+        owner: "{{ user }}"
+        group: "{{ group }}"
+        mode: 0755
+      with_items:
+        - "/var/www"
+        - "/var/www/{{ domain }}"
+        - "/var/www/{{ domain }}/html"
+
+### Nginx broti
+    - name: Gather the apt package facts
+      package_facts:
+        manager: auto
+
+    - name: Get Nginx version and set variable
+      set_fact:
+        nginx_version: "{{ ansible_facts.packages['nginx'][0].version | regex_search('^[0-9.]*') }}"
+
+    - name: Install needed packages
+      apt: 
+        pkg: "{{ item }}"
+        state: latest
+      with_items:
+        - git
+        - gcc
+        - cmake
+        - libpcre3
+        - libpcre3-dev
+        - zlib1g
+        - zlib1g-dev
+        - openssl
+        - libssl-dev
+
+    - name: Download and unarchive Nginx source code of version {{ nginx_version }}
+      unarchive:
+        src: https://nginx.org/download/nginx-{{ nginx_version }}.tar.gz
+        dest: ~/
+        remote_src: yes
+
+    - name: Git clone Brotli module (google/ngx_brotli)
+      git:
+        repo: https://github.com/google/ngx_brotli.git
+        dest: ~/ngx_brotli
+
+    - name: Configure Brotli module
+      command:
+        chdir: ~/nginx-{{ nginx_version }}
+        cmd: ./configure --with-compat --add-dynamic-module=../ngx_brotli
+    
+    - name: Make Brotli module (Dynamically loaded)
+      make:
+        chdir: ~/nginx-{{ nginx_version }}
+        target: modules
+
+    - name: Copy compiled Brotli module to /usr/share/nginx/modules
+      copy: 
+        remote_src: yes
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: "{{ user }}"
+        group: "{{ group }}"
+        mode: 0644
+      with_items:
+        - { src: "~/nginx-{{ nginx_version }}/objs/ngx_http_brotli_filter_module.so", dest: "/usr/share/nginx/modules" }
+        - { src: "~/nginx-{{ nginx_version }}/objs/ngx_http_brotli_static_module.so", dest: "/usr/share/nginx/modules" }
+
+    - name: Add Brotli module to the start of Nginx config
+      lineinfile:
+        path: /etc/nginx/nginx.conf
+        insertbefore: BOF
+        line: "{{ item.line }}"
+      with_items:
+        - { line: 'load_module "modules/ngx_http_brotli_filter_module.so";' }
+        - { line: 'load_module "modules/ngx_http_brotli_static_module.so";' }
+
+    - name: Copy Brotli config
+      copy: 
+        src: files/brotli.conf
+        dest: /etc/nginx/conf.d/brotli.conf
+        owner: "{{ user }}"
+        group: "{{ group }}"
+        mode: 0644
+
+    - name: Delete unnecessary directories
+      file:
+        state: absent
+        path: "{{ item.path }}"
+      with_items:
+        - { path: "~/ngx_brotli" }
+        - { path: "~/nginx-{{ nginx_version }}" }
+
+    - name: Enable Nginx during boot
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Reload Nginx
+      service:
+        name: nginx
+        state: reloaded
