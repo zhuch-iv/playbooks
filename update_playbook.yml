@@ -1,11 +1,12 @@
 ---
-- name: Test playbook
+- name: Update playbook
   hosts: test
   gather_facts: false
   become: true
   become_method: sudo
   vars_files:
     - group_vars/vault_vars.yml
+    - group_vars/defaults.yml
   vars:
     ansible_become_pass: "{{ root_pass }}"
     domain: sonar.zhu4.net
