@@ -8,7 +8,6 @@
     - group_vars/vault_vars.yml
   vars:
     ansible_become_pass: "{{ root_pass }}"
-    ansible_port: 2517
     domain: sonar.zhu4.net
   tasks:
     - name: ping

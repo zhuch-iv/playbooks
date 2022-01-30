@@ -9,7 +9,6 @@
     - group_vars/defaults.yml
   vars:
     ansible_become_pass: "{{ root_pass }}"
-    ansible_port: 2517
   tasks:
     - name: ping
       ping: ~
