@@ -6,13 +6,11 @@
   become_method: sudo
   vars_files:
     - group_vars/vault_vars.yml
+    - group_vars/sonarqube.yml
     - group_vars/defaults.yml
   vars:
+    sonar_root_dir: "/opt/sonarqube"
     ansible_become_pass: "{{ root_pass }}"
-    db_user: sonar
-    db_password: "{{ sonar_pass }}"
-    db_name: sonarqube
-    docker_compose_url: https://github.com/docker/compose/releases/download/1.28.2/docker-compose-Linux-x86_64
   tasks:
     - name: ping
       ping: ~
@@ -35,10 +33,7 @@
         group: "{{ group }}"
         mode: 0755
       with_items:
-        - "/opt/sonarqube"
-        - "/opt/sonarqube/data"
-        - "/opt/sonarqube/extensions"
-        - "/opt/sonarqube/logs"
+        - "{{ sonar_root_dir }}"
 
     - name: Check if vm.max_map_count is already defined
       lineinfile:
@@ -67,7 +62,15 @@
     - name: Sonarqube compose.yaml
       template: 
         src: files/sonarqube-compose.yaml.j2
-        dest: /opt/sonarqube/sonarqube-compose.yaml
+        dest: "{{ sonar_root_dir }}/sonarqube-compose.yaml"
+        owner: "{{ user }}"
+        group: "{{ group }}" 
+        mode: 644
+
+    - name: Initial postgres script
+      copy: 
+        src: files/postgresql.conf.sql
+        dest: "{{ sonar_root_dir }}/postgresql.conf.sql"
         owner: "{{ user }}"
         group: "{{ group }}" 
         mode: 644
@@ -79,12 +82,12 @@
         mode: 644
       notify:
         - reload systemctl
-    
-    - name: Start sonarqube service
-      service: 
-        name: sonarqube.service 
-        state: started 
-        enabled: yes
+
+    - name: Reboot to apply changes
+      command: reboot
+      async: 1
+      poll: 0
+      ignore_errors: yes
 
   handlers:      
     - name: reload systemctl

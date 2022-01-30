@@ -140,7 +140,6 @@
         dest: /var/www/{{ domain }}/html
         owner: "{{ user }}"
         group: "{{ group }}"
-        mode: 0644
         mode: preserve
 
     - name: Apply Nginx template
@@ -170,3 +169,9 @@
       service:
         name: nginx
         state: reloaded
+
+    - name: Reboot to apply changes
+      command: reboot
+      async: 1
+      poll: 0
+      ignore_errors: yes

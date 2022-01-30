@@ -13,20 +13,16 @@ server {
 
     server_name {{ domain }};
 
-    root /var/www/{{ domain }}/html;
-    index index.html;
-
     ssl_certificate /etc/letsencrypt/live/{{ domain }}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/{{ domain }}/privkey.pem;
     ssl_trusted_certificate /etc/letsencrypt/live/{{ domain }}/chain.pem;
     
-    location ~* ^.+\.(rss|atom|xml|jpg|jpeg|gif|png|svg|ico|rtf|js|css|woff|woff2|ttf|otf)$ {
-        expires 30d;
-    }
-
     location / {
-        try_files $uri $uri/ /index.html;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host $host;
+        proxy_set_header X-NginX-Proxy true;
+        proxy_pass http://localhost:{{ proxy_port }}/;
+        proxy_redirect http://localhost:{{ proxy_port }}/ https://$server_name/;
     }
-
-    etag on;
 }

@@ -5,9 +5,9 @@
   vars_files:
     - group_vars/vault_vars.yml
   vars:
-    remote_user: root
+    ansible_user: root
     ansible_port: 22
-    docker_compose_url: https://github.com/docker/compose/releases/download/1.28.2/docker-compose-Linux-x86_64
+    docker_compose_url: https://github.com/docker/compose/releases/download/1.29.2/docker-compose-Linux-x86_64
 
   tasks:
     - name: ping
