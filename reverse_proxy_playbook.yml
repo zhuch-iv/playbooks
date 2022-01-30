@@ -9,7 +9,7 @@
     - group_vars/defaults.yml
   vars:
     ansible_become_pass: "{{ root_pass }}"
-    proxy_port: 9000
+    proxy_port: 8888
   tasks:
     - name: ping
       ping: ~

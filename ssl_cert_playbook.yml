@@ -6,11 +6,10 @@
   become_method: sudo
   vars_files:
     - group_vars/vault_vars.yml
+    - group_vars/defaults.yml
   vars:
     ansible_become_pass: "{{ root_pass }}"
     ansible_port: 2517
-    domain: sonar.zhu4.net
-    email: zhu4.ivan@pm.me
   tasks:
     - name: ping
       ping: ~

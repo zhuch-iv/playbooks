@@ -80,15 +80,15 @@
         src: files/sonarqube.service.j2 
         dest: /lib/systemd/system/sonarqube.service 
         mode: 644
-      notify:
-        - reload systemctl
+
+    - name: Enable Sonarqube during boot
+      service:
+        name: sonarqube
+        state: started
+        enabled: yes
 
     - name: Reboot to apply changes
       command: reboot
       async: 1
       poll: 0
       ignore_errors: yes
-
-  handlers:      
-    - name: reload systemctl
-      command: systemctl daemon-reload
