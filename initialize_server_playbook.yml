@@ -4,14 +4,21 @@
   gather_facts: false
   vars_files:
     - group_vars/vault_vars.yml
+  vars:
+    remote_user: root
+    ansible_port: 22
+    docker_compose_url: https://github.com/docker/compose/releases/download/1.28.2/docker-compose-Linux-x86_64
 
   tasks:
-### Update server & install required packages
     - name: ping
       ping: ~
 
     - name: Install aptitude using apt
-      apt: name=aptitude state=latest update_cache=yes force_apt_get=yes
+      apt: 
+        name: aptitude 
+        state: latest 
+        update_cache: yes 
+        force_apt_get: yes
 
     - name: Update and upgrade apt packages
       apt:
@@ -36,12 +43,25 @@
         repo: deb https://download.docker.com/linux/ubuntu bionic stable
         state: present
 
-    - name: Update apt and install docker-ce
-      apt: update_cache=yes name=docker-ce state=latest
+    - name: install docker
+      apt:
+        name: "{{item}}"
+        state: latest
+        update_cache: yes
+      loop:
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
 
     - name: Install Docker Module for Python
       pip:
         name: docker
+
+    - name: Install Docker Compose
+      get_url:
+        url: "{{ docker_compose_url }}"
+        dest: /usr/local/bin/docker-compose
+        mode: u+x,g+x,o+x
 
 ### Configurate ufw
     - name: Install ufw

@@ -1,0 +1,61 @@
+---
+- name: Create database playbook
+  hosts: test
+  gather_facts: false
+  become: true
+  become_method: sudo
+  vars_files:
+    - group_vars/vault_vars.yml
+    - group_vars/defaults.yml
+  vars:
+    ansible_become_pass: "{{ root_pass }}"
+    db_user: sonar
+    db_password: "{{ sonar_pass }}"
+    db_name: sonarqube
+  tasks:
+    - name: ping
+      ping: ~
+
+### Create user & database
+    - name: "Create app database"
+      postgresql_db:
+        state: present
+        name: "{{ db_name }}"
+      become: yes
+      become_user: postgres
+
+    - name: "Create db user"
+      postgresql_user:
+        state: present
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+      become: yes
+      become_user: postgres
+
+    - name: "Grant db user access to app db"
+      postgresql_privs:
+        type: database
+        database: "{{ db_name }}"
+        roles: "{{ db_user }}"
+        grant_option: no
+        privs: all
+      become: yes
+      become_user: postgres
+
+    - name: "Allow md5 connection for the db user"
+      postgresql_pg_hba:
+        dest: "/etc/postgresql/14/main/pg_hba.conf"
+        contype: host
+        databases: all
+        method: md5
+        users: "{{ db_user }}"
+        create: true
+      become: yes
+      become_user: postgres
+      notify: restart postgres
+
+  handlers:
+    - name: restart postgres
+      service: 
+        name: postgresql 
+        state: restarted

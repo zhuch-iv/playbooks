@@ -1,0 +1,15 @@
+[Unit]
+Description=Sonarqube Service
+After=docker.service
+Requires=docker.service
+
+[Service]
+Restart=always
+WorkingDirectory=/opt/sonarqube
+ExecStart=/usr/local/bin/docker-compose -f sonarqube-compose.yaml up
+ExecStop=/usr/local/bin/docker-compose -f sonarqube-compose.yaml down
+StartLimitIntervalSec=10
+Restart=5
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,6 @@
+ansible_port: 2517
+user: ansible
+group: ansible
+email: zhu4.ivan@pm.me
+
+domain: sonar.zhu4.net

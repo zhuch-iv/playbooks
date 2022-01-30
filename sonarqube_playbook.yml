@@ -1,0 +1,91 @@
+---
+- name: Install Sonarqube Service
+  hosts: test
+  gather_facts: false
+  become: true
+  become_method: sudo
+  vars_files:
+    - group_vars/vault_vars.yml
+    - group_vars/defaults.yml
+  vars:
+    ansible_become_pass: "{{ root_pass }}"
+    db_user: sonar
+    db_password: "{{ sonar_pass }}"
+    db_name: sonarqube
+    docker_compose_url: https://github.com/docker/compose/releases/download/1.28.2/docker-compose-Linux-x86_64
+  tasks:
+    - name: ping
+      ping: ~
+
+    - name: Create sysconfig folder
+      file: 
+        state: directory
+        path: "{{ item }}"
+        owner: root
+        group: root
+        mode: 0755
+      with_items:
+        - "/etc/sysconfig"
+
+    - name: Create folders
+      file: 
+        state: directory
+        path: "{{ item }}"
+        owner: "{{ user }}"
+        group: "{{ group }}"
+        mode: 0755
+      with_items:
+        - "/opt/sonarqube"
+        - "/opt/sonarqube/data"
+        - "/opt/sonarqube/extensions"
+        - "/opt/sonarqube/logs"
+
+    - name: Check if vm.max_map_count is already defined
+      lineinfile:
+        state: absent
+        path: "/etc/sysctl.conf"
+        regexp: "^vm.max_map_count="
+      check_mode: true
+      changed_when: false # This just makes things look prettier in the logs
+      register: check
+
+    - name: Define vm.max_map_count if undefined
+      lineinfile:
+        state: present
+        path: "/etc/sysctl.conf"
+        line: "vm.max_map_count=262144"
+      when: check.found == 0
+
+    - name: Create a volumes
+      docker_volume:
+        name: "{{ item }}"
+      with_items:
+        - sonarqube_data
+        - sonarqube_extensions
+        - sonarqube_logs
+
+    - name: Sonarqube compose.yaml
+      template: 
+        src: files/sonarqube-compose.yaml.j2
+        dest: /opt/sonarqube/sonarqube-compose.yaml
+        owner: "{{ user }}"
+        group: "{{ group }}" 
+        mode: 644
+    
+    - name: Sonarqube create Unit file
+      template: 
+        src: files/sonarqube.service.j2 
+        dest: /lib/systemd/system/sonarqube.service 
+        mode: 644
+      notify:
+        - reload systemctl
+    
+    - name: Start sonarqube service
+      service: 
+        name: sonarqube.service 
+        state: started 
+        enabled: yes
+
+  handlers:      
+    - name: reload systemctl
+      command: systemctl daemon-reload
