@@ -1,0 +1,41 @@
+---
+- name: Install kube
+  hosts: kube
+  gather_facts: false
+  become: true
+  become_method: sudo
+  vars_files:
+    - group_vars/vault_vars.yml
+    - group_vars/kube.yml
+  vars:
+    ansible_become_pass: "{{ root_pass }}"
+  tasks:
+    - name: ping
+      ping: ~
+
+### Install
+    - name: Update and upgrade apt packages
+      apt:
+        upgrade: yes
+        update_cache: yes
+
+#    - name: Add Kubernetes apt-key
+#      apt_key:
+#        url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+#        state: present
+#
+#    - name: add Kubernetes' APT repository
+#      apt_repository:
+#        repo: deb http://apt.kubernetes.io/ kubernetes-xenial main
+#        state: present
+#        filename: 'kubernetes'
+
+#    - name: Install packages
+#      apt: name={{ item }} state=latest update_cache=yes
+#      loop: [ 'kubelet', 'kubeadm', 'kubectl', 'kubernetes-cni' ]
+
+    - name: Reboot to apply changes
+      command: reboot
+      async: 1
+      poll: 0
+      ignore_errors: yes

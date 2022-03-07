@@ -8,7 +8,7 @@ Restart=always
 WorkingDirectory=/opt/sonarqube
 ExecStart=/usr/local/bin/docker-compose -f sonarqube-compose.yaml up
 ExecStop=/usr/local/bin/docker-compose -f sonarqube-compose.yaml down
-StartLimitIntervalSec=10
+StartLimitIntervalSec=60
 Restart=5
 
 [Install]
